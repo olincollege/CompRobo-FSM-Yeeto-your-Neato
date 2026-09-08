@@ -7,12 +7,13 @@ class MoveNeatoNode(Node):
         super().__init__("move_neato_node")
         timer_period = 1
         self.timer = self.create_timer(timer_period, self.run_loop)
-        self.publisher = self.create_publisher("",'cmd_vel', 10)
+        self.publisher = self.create_publisher(Twist, 'cmd_vel', 10)
 
-    def run_loop ():
+    def run_loop(self):
         twist_msg = Twist()
         twist_msg.linear.x = .5
         self.publisher.publish(twist_msg)
+        print(twist_msg)
 
 def main(args = None):
     rclpy.init(args=args)      
