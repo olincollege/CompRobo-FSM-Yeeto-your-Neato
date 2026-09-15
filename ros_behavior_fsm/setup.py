@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-package_name = 'maximum_yeeto'
+package_name = 'ros_behavior_fsm'
 
 setup(
     name=package_name,
@@ -24,7 +24,8 @@ setup(
     },
     entry_points={
         'console_scripts': [
-            'move_neato = maximum_yeeto.move_neato:main'
+            'move_neato = ros_behavior_fsm.move_neato:main',
+            'drive_in_square = ros_behavior_fsm.drive_in_square:main'
         ],
     },
 )
