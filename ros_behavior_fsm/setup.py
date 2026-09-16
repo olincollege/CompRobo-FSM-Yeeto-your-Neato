@@ -25,7 +25,8 @@ setup(
     entry_points={
         'console_scripts': [
             'move_neato = ros_behavior_fsm.move_neato:main',
-            'drive_in_square = ros_behavior_fsm.drive_in_square:main'
+            'drive_in_square = ros_behavior_fsm.drive_in_square:main',
+            'finite_state_controller = ros_behavior_fsm.finite_state_controller:main'
         ],
     },
 )
