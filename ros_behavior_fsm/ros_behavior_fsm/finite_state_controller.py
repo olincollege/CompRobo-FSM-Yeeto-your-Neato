@@ -6,6 +6,9 @@ import time
 from sensor_msgs.msg import LaserScan
 
 class FiniteStateController(Node):
+    ideal_wall_distance = 10
+    error_to_velocity = 1
+
     def __init__(self):
         self.e_stop = False
         self.laser_mad = False
@@ -20,7 +23,6 @@ class FiniteStateController(Node):
         self.twist_direction = (Twist(), Twist())
         self.twist_direction[0].linear.x = .25
         self.twist_direction[1].angular.z = .197
-
     
     def process_bump(self, msg):
         self.e_stop = msg.left_front or msg.left_side or msg.right_front or msg.right_side
@@ -35,7 +37,6 @@ class FiniteStateController(Node):
             twist_msg = Twist()
             twist_msg.angular.z = .2
             self.publisher.publish(twist_msg)
-    
 
     def run_loop(self):
         if self.e_stop
@@ -47,9 +48,6 @@ class FiniteStateController(Node):
         else:
             self.square
 
-            
-     
-        
     def square(self):
         elapsed_time = time.time() - self.time_started
         i = self.what_doin % 2
@@ -59,16 +57,33 @@ class FiniteStateController(Node):
         else:
             self.publisher.publish(self.twist_direction[i])
 
-    def wall_follow(self,msg)
-        pass
+    def wall_follow(self)
+        """
+        Make the Neato balance driving toward the nearest wall
+        in front of it and keeping a safe distance from it.
+        """
+        # Take in the laser range data from the left and right
+        # side of the front quarter of the Neato.
+        left_laser = self.laser_eyes[1:46]
+        right_laser = self.laser_eyes[315:360]
 
+        # Make a weighted sum of all ranges on each side
+        # that scales with how close the ranges are
+        # by summing the reciprocals of the distances.
+        left_closeness = sum([1 / dist for dist in left_laser])
+        right_closeness = sum([1 / dist for dist in right_laser])
+
+        # Choose which side has the closest wall.
+        wall_on_left = left_closeness - right_closeness > 0
+
+        # 
+        
 
 def main(args = None):
     rclpy.init(args=args)      
     node = FiniteStateController()
     rclpy.spin(node)
     rclpy.shutdown()    
-
 
 
 if __name__ == '__main__':
