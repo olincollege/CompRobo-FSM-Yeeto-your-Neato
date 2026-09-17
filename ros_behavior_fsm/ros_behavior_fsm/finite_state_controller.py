@@ -31,10 +31,11 @@ class FiniteStateController(Node):
 
     def process_scan(self, msg):
         self.laser_eyes = msg.ranges
-        neato_eyes = self.laser_eyes[-45:45]
-        print(neato_eyes)
-        if any(distance>0.5 for distance in neato_eyes):
+        neato_eyes = self.laser_eyes[-45:-1] + self.laser_eyes[0:45]
+        if any(distance<0.5 for distance in neato_eyes):
             self.laser_mad = True
+        else:
+            self.laser_mad = False
         print("laser_mad:", self.laser_mad)
 
     def avoid_collision(self):
@@ -51,7 +52,13 @@ class FiniteStateController(Node):
             # print("avoiding collision")
             self.avoid_collision()
         else:
-            self.square()
+            # self.square()
+            self.forward() # adding this temporarily to test collision avoidance
+
+    def forward(self):
+        twist_msg = Twist()
+        twist_msg.linear.x = .4
+        self.publisher.publish(twist_msg)
 
     def square(self):
         elapsed_time = time.time() - self.time_started
