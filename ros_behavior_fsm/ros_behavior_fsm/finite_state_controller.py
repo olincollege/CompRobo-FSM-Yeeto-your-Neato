@@ -24,6 +24,7 @@ class FiniteStateController(Node):
         self.twist_direction = (Twist(), Twist())
         self.twist_direction[0].linear.x = .25
         self.twist_direction[1].angular.z = 1.0
+        self.possible_person = []
     
     def process_bump(self, msg):
         self.e_stop = msg.left_front or msg.left_side or msg.right_front or msg.right_side
@@ -37,6 +38,10 @@ class FiniteStateController(Node):
         else:
             self.laser_mad = False
         print("laser_mad:", self.laser_mad)
+
+        for i in range(360):
+            if abs(laser_eyes[i]-laser_eyes[i+1]) > 5:
+                possible_person.append(laser_eyes(i))
 
     def avoid_collision(self):
         twist_msg = Twist()
@@ -68,6 +73,12 @@ class FiniteStateController(Node):
             self.time_started = time.time()
         else:
             self.publisher.publish(self.twist_direction[i])
+    
+    def person_follow():
+        if len(possible_person) > 0
+        
+
+
 
     def wall_follow(self):
         """
