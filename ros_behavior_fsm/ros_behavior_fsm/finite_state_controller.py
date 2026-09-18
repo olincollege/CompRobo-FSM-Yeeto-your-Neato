@@ -8,7 +8,7 @@ import math
 
 class FiniteStateController(Node):
     ideal_closeness = 10
-    error_to_velocity = 1
+    error_to_velocity = 0.1
 
     def __init__(self):
         self.e_stop = False
@@ -64,7 +64,7 @@ class FiniteStateController(Node):
             self.avoid_collision()
         else:
             # self.square()
-            self.forward() # adding this temporarily to test collision avoidance
+            self.wall_follow() # adding this temporarily to test collision avoidance
 
     def forward(self):
         twist_msg = Twist()
@@ -102,9 +102,9 @@ class FiniteStateController(Node):
         in front of it and keeping a safe distance from it.
         """
         # Take in the laser range data from the left and right
-        # side of the front quarter of the Neato.
-        left_laser = self.laser_eyes[1:46]
-        right_laser = self.laser_eyes[315:360]
+        # side of the front three quarters of the Neato.
+        left_laser = self.laser_eyes[1:136]
+        right_laser = self.laser_eyes[225:360]
 
         # Make a weighted sum of all ranges on each side
         # that scales with how close the ranges are
@@ -118,7 +118,20 @@ class FiniteStateController(Node):
 
         # Find the error from the ideal closeness
         error = closeness[wall_on_right] - self.ideal_closeness
-        
+        print(f"{error = }")
+
+        # Turn based on that error
+        wall_side_sign = closeness_index * 2 - 1
+        angular_vel = error * error_to_velocity * wall_side_sine
+        print(f"Unclamped angular velocity = {angular_vel}")
+        angular_vel = max(angular_vel, -0.5)
+        angular_vel = min(angular_vel, 0.5)
+        print(f"Clamped angular velocity = {angular_vel}")
+        twist_msg = Twist()
+        twist_msg.linear.x = 0.15
+        twist_msg.angular.z = angular_vel
+        self.publisher.publish(twist_msg)
+
 
 def main(args = None):
     rclpy.init(args=args)      
