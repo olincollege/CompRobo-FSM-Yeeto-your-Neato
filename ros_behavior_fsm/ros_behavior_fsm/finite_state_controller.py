@@ -4,6 +4,7 @@ from geometry_msgs.msg import Twist
 from neato2_interfaces.msg import Bump
 import time
 from sensor_msgs.msg import LaserScan
+import math
 
 class FiniteStateController(Node):
     ideal_closeness = 10
@@ -41,7 +42,12 @@ class FiniteStateController(Node):
 
         for i in range(360):
             if abs(laser_eyes[i]-laser_eyes[i+1]) > 5:
-                possible_person.append(laser_eyes(i))
+                if laser[i] < laser_eyes[i+1]:
+                    self.possible_person.append((i,laser_eyes(i)))
+                else
+                    self.possible_person.append((i+1,laser_eyes(i+1)))
+
+
 
     def avoid_collision(self):
         twist_msg = Twist()
@@ -74,8 +80,18 @@ class FiniteStateController(Node):
         else:
             self.publisher.publish(self.twist_direction[i])
     
+   
+
+
     def person_follow():
-        if len(possible_person) > 0
+        if len(self.possible_person) > 0
+
+            self.possible_person.sort(key = lambda element: element[1])
+            x = self.possible_person[0]
+            arc_length = ((.5 *x[1])/math.tan(x[0])) * x[0]
+        
+    
+
         
 
 
