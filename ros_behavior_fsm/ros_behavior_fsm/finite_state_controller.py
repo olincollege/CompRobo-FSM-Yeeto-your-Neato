@@ -41,8 +41,8 @@ class FiniteStateController(Node):
         print("laser_mad:", self.laser_mad)
 
         for i in range(360):
-            if abs(laser_eyes[i]-laser_eyes[i+1]) > 5:
-                if laser[i] < laser_eyes[i+1]:
+            if abs(self.laser_eyes[i]-laser_eyes[i+1]) > 5:
+                if self.laser_eyes[i] < self.laser_eyes[i+1]:
                     self.possible_person.append((i,laser_eyes(i)))
                 else
                     self.possible_person.append((i+1,laser_eyes(i+1)))
@@ -62,6 +62,8 @@ class FiniteStateController(Node):
         elif self.laser_mad:
             # print("avoiding collision")
             self.avoid_collision()
+        elif len(self.possible_person) > 0:
+            self.person_follow
         else:
             # self.square()
             self.wall_follow() # adding this temporarily to test collision avoidance
@@ -84,12 +86,16 @@ class FiniteStateController(Node):
 
 
     def person_follow():
-        if len(self.possible_person) > 0
-
-            self.possible_person.sort(key = lambda element: element[1])
-            x = self.possible_person[0]
-            arc_length = ((.5 *x[1])/math.tan(x[0])) * x[0]
-        
+       
+        self.possible_person.sort(key = lambda element: element[1])
+        person_tuple = self.possible_person[0]
+        arc_length = ((.5 *person_tuple[1])/math.tan(person_tuple[0])) * person_tuple[0]
+        time = arc_length/ 0.1
+        angular_speed = (person_tuple[0] * .01745)/.1
+        twist_msg = Twist()
+        twist_msg.linear = .1
+        twist_msg.angular.z = angular_speed
+        self.publisher.publish(twist_msg)
     
 
         
