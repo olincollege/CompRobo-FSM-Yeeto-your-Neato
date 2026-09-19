@@ -7,8 +7,8 @@ from sensor_msgs.msg import LaserScan
 import math
 
 class FiniteStateController(Node):
-    ideal_closeness = 10
-    error_to_velocity = 0.1
+    ideal_closeness = 140
+    error_to_velocity = 0.01
 
     def __init__(self):
         self.e_stop = False
@@ -26,6 +26,7 @@ class FiniteStateController(Node):
         self.twist_direction[0].linear.x = .25
         self.twist_direction[1].angular.z = 1.0
         self.possible_person = []
+        self.laser_eyes = None
     
     def process_bump(self, msg):
         self.e_stop = msg.left_front or msg.left_side or msg.right_front or msg.right_side
@@ -41,11 +42,11 @@ class FiniteStateController(Node):
         print("laser_mad:", self.laser_mad)
 
         for i in range(360):
-            if abs(self.laser_eyes[i]-laser_eyes[i+1]) > 5:
+            if abs(self.laser_eyes[i]-self.laser_eyes[i+1]) > 5:
                 if self.laser_eyes[i] < self.laser_eyes[i+1]:
-                    self.possible_person.append((i,laser_eyes(i)))
-                else
-                    self.possible_person.append((i+1,laser_eyes(i+1)))
+                    self.possible_person.append((i,self.laser_eyes[i]))
+                else:
+                    self.possible_person.append((i+1,self.laser_eyes[i+1]))
 
 
 
@@ -107,6 +108,11 @@ class FiniteStateController(Node):
         Make the Neato balance driving toward the nearest wall
         in front of it and keeping a safe distance from it.
         """
+        # If no laser scan has been taken, go forward.
+        if self.laser_eyes is None:
+            self.forward
+            return
+
         # Take in the laser range data from the left and right
         # side of the front three quarters of the Neato.
         left_laser = self.laser_eyes[1:136]
@@ -115,20 +121,21 @@ class FiniteStateController(Node):
         # Make a weighted sum of all ranges on each side
         # that scales with how close the ranges are
         # by summing the reciprocals of the distances.
-        closeness = (sum([1 / dist for dist in left_laser]),
+        closeness = (sum([1 / dist**2 for dist in left_laser]),
             sum([1 / dist for dist in right_laser]))
             # closeness = (left, right)
 
         # Choose which side has the closest wall.
-        closeness_index = int(left_closeness - right_closeness < 0)
+        closeness_index = int(closeness[0] - closeness[1] < 0)
 
         # Find the error from the ideal closeness
-        error = closeness[wall_on_right] - self.ideal_closeness
+        print(f"closeness = {closeness[closeness_index]}")
+        error = closeness[closeness_index] - self.ideal_closeness
         print(f"{error = }")
 
         # Turn based on that error
         wall_side_sign = closeness_index * 2 - 1
-        angular_vel = error * error_to_velocity * wall_side_sine
+        angular_vel = error * self.error_to_velocity * wall_side_sign
         print(f"Unclamped angular velocity = {angular_vel}")
         angular_vel = max(angular_vel, -0.5)
         angular_vel = min(angular_vel, 0.5)
