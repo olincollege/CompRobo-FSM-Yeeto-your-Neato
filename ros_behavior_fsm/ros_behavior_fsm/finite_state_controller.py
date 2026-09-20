@@ -7,15 +7,16 @@ from sensor_msgs.msg import LaserScan
 import math
 
 class FiniteStateController(Node):
-    ideal_closeness = 140
-    error_to_velocity = 0.01
+    ideal_closeness = 90
+    error_to_velocity = 0.02
+    de_dt_to_velocity = 0.1
 
     def __init__(self):
         self.e_stop = False
         self.laser_mad = False
         super().__init__("finite_state_controller")
-        timer_period = .01
-        self.timer = self.create_timer(timer_period, self.run_loop)
+        self.timer_period = .01
+        self.timer = self.create_timer(self.timer_period, self.run_loop)
         self.publisher = self.create_publisher(Twist,'cmd_vel', 10)
         self.sub_bump = self.create_subscription(Bump, "bump", self.process_bump, 10)
         self.sub_scan = self.create_subscription(LaserScan, "scan", self.process_scan, 10)
@@ -27,6 +28,8 @@ class FiniteStateController(Node):
         self.twist_direction[1].angular.z = 1.0
         self.possible_person = []
         self.laser_eyes = None
+        self.last_error = None
+        self.last_time = time.time()
     
     def process_bump(self, msg):
         self.e_stop = msg.left_front or msg.left_side or msg.right_front or msg.right_side
@@ -48,14 +51,18 @@ class FiniteStateController(Node):
                 else:
                     self.possible_person.append((i+1,self.laser_eyes[i+1]))
 
-
-
     def avoid_collision(self):
         twist_msg = Twist()
         twist_msg.angular.z = .2
         self.publisher.publish(twist_msg)
 
     def run_loop(self):
+        # Make sure the timer period is long enough
+        if self.last_time + self.timer_period > time.time():
+            print("self.timer_period is too long!")
+            self.last_time = time.time()
+
+        # Check for and run the current state
         if self.e_stop:
             # print("stopping due to bump")
             twist_msg = Twist()
@@ -63,8 +70,8 @@ class FiniteStateController(Node):
         elif self.laser_mad:
             # print("avoiding collision")
             self.avoid_collision()
-        elif len(self.possible_person) > 0:
-            self.person_follow
+        #elif len(self.possible_person) > 0:
+            #self.person_follow
         else:
             # self.square()
             self.wall_follow() # adding this temporarily to test collision avoidance
@@ -82,12 +89,8 @@ class FiniteStateController(Node):
             self.time_started = time.time()
         else:
             self.publisher.publish(self.twist_direction[i])
-    
-   
-
 
     def person_follow():
-       
         self.possible_person.sort(key = lambda element: element[1])
         person_tuple = self.possible_person[0]
         arc_length = ((.5 *person_tuple[1])/math.tan(person_tuple[0])) * person_tuple[0]
@@ -97,11 +100,6 @@ class FiniteStateController(Node):
         twist_msg.linear = .1
         twist_msg.angular.z = angular_speed
         self.publisher.publish(twist_msg)
-    
-
-        
-
-
 
     def wall_follow(self):
         """
@@ -115,13 +113,13 @@ class FiniteStateController(Node):
 
         # Take in the laser range data from the left and right
         # side of the front three quarters of the Neato.
-        left_laser = self.laser_eyes[1:136]
-        right_laser = self.laser_eyes[225:360]
+        left_laser = self.laser_eyes[1:91]
+        right_laser = self.laser_eyes[270:360]
 
         # Make a weighted sum of all ranges on each side
         # that scales with how close the ranges are
         # by summing the reciprocals of the distances.
-        closeness = (sum([1 / dist**2 for dist in left_laser]),
+        closeness = (sum([1 / dist for dist in left_laser]),
             sum([1 / dist for dist in right_laser]))
             # closeness = (left, right)
 
@@ -133,9 +131,16 @@ class FiniteStateController(Node):
         error = closeness[closeness_index] - self.ideal_closeness
         print(f"{error = }")
 
-        # Turn based on that error
+        # Turn based on that error and the previous error
         wall_side_sign = closeness_index * 2 - 1
         angular_vel = error * self.error_to_velocity * wall_side_sign
+        if self.last_error is not None:
+            # Calculate how much the rate of change of error
+            # should effect the angular velocity
+            delta_error = error - self.last_error
+            de_dt = self.timer_period * delta_error
+            angular_vel += de_dt * self.de_dt_to_velocity
+
         print(f"Unclamped angular velocity = {angular_vel}")
         angular_vel = max(angular_vel, -0.5)
         angular_vel = min(angular_vel, 0.5)
@@ -145,6 +150,8 @@ class FiniteStateController(Node):
         twist_msg.angular.z = angular_vel
         self.publisher.publish(twist_msg)
 
+        # Set last_error
+        self.last_error = error
 
 def main(args = None):
     rclpy.init(args=args)      

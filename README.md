@@ -26,7 +26,7 @@ Our wall following algorithm:
 ![Diagram of Neato facing an angled wall, with lines showing LiDAR scan.](/media/neato_at_wall.png)
 
 - We split the Neato's forward-facing field of view into 2 halves: the right and the left. Each of these is received as a list of numbers, each representing a distance in meters.
-- For both the right and the left, we take reciprocals of each distance and then sum all the reciprocals. This gives us a number, "closeness", that is smaller if the overall distances on that side are farther away, and larger if the distances on that side are closer.
+- For both the right and the left, we take squared reciprocals of each distance and then sum them all. This gives us a number, "closeness", that is smaller if the overall distances on that side are farther away, and larger if the distances on that side are closer.
 - We assume that the wall is on the side that has higher closeness.
 - We compare that side's closeness value to an "ideal closeness" value, which is a constant, to get the error.
 - We set angular velocity scaling on that error.
