@@ -12,10 +12,10 @@ class DriveInSquare(Node):
         self.timer = self.create_timer(timer_period, self.run_loop)
         self.publisher = self.create_publisher(Twist,'cmd_vel', 10)
         self.time_started = time.time()
-        self.move_time = (4,8)
+        self.move_time = (4,0.785)
         self.twist_direction = (Twist(), Twist())
         self.twist_direction[0].linear.x = .25
-        self.twist_direction[1].angular.z = .197
+        self.twist_direction[1].angular.z = 2.0
 
     def run_loop(self):
         elapsed_time = time.time() - self.time_started
@@ -25,15 +25,13 @@ class DriveInSquare(Node):
             self.time_started = time.time()
         else:
             self.publisher.publish(self.twist_direction[i])
-           
-        
 
 
 def main(args = None):
-    rclpy.init(args=args)      
+    rclpy.init(args=args)
     node = DriveInSquare()
     rclpy.spin(node)
-    rclpy.shutdown()    
+    rclpy.shutdown()
 
 
 

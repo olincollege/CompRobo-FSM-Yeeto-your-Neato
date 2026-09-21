@@ -90,7 +90,7 @@ class FiniteStateController(Node):
             msg (Bump): The bump sensor data from the Neato.
         """
         self.e_stop = msg.left_front or msg.left_side or msg.right_front or msg.right_side
-        # print("e_stop:", self.e_stop)
+        print("e_stop:", self.e_stop)
 
     def process_scan(self, msg):
         """
@@ -110,7 +110,7 @@ class FiniteStateController(Node):
 
         self.possible_person = []
         for i in range(360):
-            if abs(self.laser_eyes[i]-self.laser_eyes[i+1]) > 5: # and self.laser_eyes[i]<10 and self.laser_eyes[i+1]<10:
+            if abs(self.laser_eyes[i]-self.laser_eyes[i+1]) > 1: # and self.laser_eyes[i]<10 and self.laser_eyes[i+1]<10:
                 if self.laser_eyes[i] < self.laser_eyes[i+1] and self.laser_eyes[i]<4:
                     self.possible_person.append((i,self.laser_eyes[i]))
                 elif self.laser_eyes[i+1]<4:
@@ -145,12 +145,12 @@ class FiniteStateController(Node):
             twist_msg = Twist()
             self.publisher.publish(twist_msg)
             self.last_error = None
+        elif len(self.possible_person) > 0:
+            self.person_follow()
+            self.last_error = None
         elif self.laser_mad:
             # print("avoiding collision")
             self.avoid_collision()
-            self.last_error = None
-        elif len(self.possible_person) > 0:
-            self.person_follow()
             self.last_error = None
         else:
             print("wall following")
@@ -190,8 +190,10 @@ class FiniteStateController(Node):
         # Use angle and distance to point to calculate ideal angular velocity
         arc_length = (distance * theta_rad) / math.sin(theta_rad/2)
         time = arc_length / 0.1
-        angular_vel = theta_rad / time
-        print(self.possible_person[0][0], distance, arc_length, angular_vel)
+        angular_vel = 2 * theta_rad / time
+        angular_vel = max(angular_vel, -1.0)
+        angular_vel = min(angular_vel, 1.0)
+        # print(self.possible_person[0][0], distance, arc_length, angular_vel)
 
         # Send a message to cmd_vel using calculated angular velocity
         twist_msg = Twist()
@@ -240,8 +242,8 @@ class FiniteStateController(Node):
             angular_vel += de_dt * self.de_dt_to_velocity
 
         # print(f"Unclamped angular velocity = {angular_vel}")
-        angular_vel = max(angular_vel, -0.5)
-        angular_vel = min(angular_vel, 0.5)
+        angular_vel = max(angular_vel, -1.0)
+        angular_vel = min(angular_vel, 1.0)
         # print(f"Clamped angular velocity = {angular_vel}")
         twist_msg = Twist()
         twist_msg.linear.x = 0.15
