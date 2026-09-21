@@ -7,11 +7,61 @@ from sensor_msgs.msg import LaserScan
 import math
 
 class FiniteStateController(Node):
-    ideal_closeness = 90
-    error_to_velocity = 0.02
-    de_dt_to_velocity = 0.1
+    """
+    Control the velocity of a Neato based on LiDAR and bump sensor inputs.
+    Make it run into the closest free-standing object to it,
+    if none are detected by the LiDAR follow the nearest wall,
+    if there is an object that the Neato will run into make it turn away,
+    if the Neato runs into something make it stop moving.
 
+    Attributes:
+        ideal_closeness (int, 1/m): The ideal closeness value used in the
+        PD loop for wall_follow.
+        error_to_velocity (float, rad*m/s): rotational velocity divided
+        by error, used in the PD loop for wall_follow.
+        de_dt_to_velocity (float, rad*m): rotational velocity divided by the
+        time derivative of error, used in the PD loop for wall_follow.
+        e_stop (boolean): Has the bump sensor been triggered?
+        timer_period (float, s): The amount of time between iterations of
+        the loop.
+        publisher (Publisher): Controls the Neato's velocity.
+        sub_bump (Subscription): Takes in information from
+        the Neato's bump sensor.
+        sub_scan (Subscription): Takes in information from
+        the Neato's LiDAR scanner.
+        time_started (float, s): The time the Neato started the last
+        line or angle while driving in a square (not used in the FSM).
+        what_doin (int): The step of the process of driving in a square
+        the Neato is on, 0 for first side, 1 for first corner, 2 for
+        second side, 3 for second corner, etc. (not used in the FSM)
+        move_time ((int, float), (s, s)): The time spent driving in
+        a line and rotating respectively while driving in a square
+        (not used in the FSM)
+        twist_direction ((Twist, Twist), (m, rad)): The velocities
+        for driving in a straight line and turning respectively
+        for driving in a square (not used in the FSM).
+        possible_person ([(int, float), ...], [(deg, m), ...]):
+        all the places there could be a free-standing object,
+        the angle from the Neato to it and the distance between
+        them respectively.
+        laser_eyes ([float, ...], [m, ...]): The distance data from the
+        Neato's LiDAR, each index ([0, 360]) is an angle in degrees.
+        laser_mad (boolean): Is there something in front that is closer
+        than 0.5 meters?
+        last_error (float, 1/m): The error value calculated in the previous
+        frame while wall following, or None.
+        last_time (float, s): The time the last frame ran, used for tuning
+        timer period.
+
+        All other attributes are inherited from Node
+    """
     def __init__(self):
+        """
+        Initialize all instance attributes.
+        """
+        self.ideal_closeness = 90
+        self.error_to_velocity = 0.02
+        self.de_dt_to_velocity = 0.1
         self.e_stop = False
         self.laser_mad = False
         super().__init__("finite_state_controller")
@@ -28,14 +78,28 @@ class FiniteStateController(Node):
         self.twist_direction[1].angular.z = 1.0
         self.possible_person = []
         self.laser_eyes = None
+        self.laser_mad = False
         self.last_error = None
         self.last_time = time.time()
     
     def process_bump(self, msg):
+        """
+        Take in the bump sensor data and update e_stop.
+
+        Args:
+            msg (Bump): The bump sensor data from the Neato.
+        """
         self.e_stop = msg.left_front or msg.left_side or msg.right_front or msg.right_side
         # print("e_stop:", self.e_stop)
 
     def process_scan(self, msg):
+        """
+        Take in the LiDar data and update laser_eyes, laser_mad,
+        and possible person.
+
+        Args:
+            msg (LaserScan): The LiDAR data from the Neato.
+        """
         self.laser_eyes = msg.ranges
         neato_eyes = self.laser_eyes[-45:-1] + self.laser_eyes[0:45]
         if any(distance<0.5 for distance in neato_eyes):
@@ -55,11 +119,21 @@ class FiniteStateController(Node):
 
 
     def avoid_collision(self):
+        """
+        If there is something in front of the Neato that is closer
+        than 0.5 meters, turn to the left.
+        """
         twist_msg = Twist()
         twist_msg.angular.z = .2
         self.publisher.publish(twist_msg)
 
     def run_loop(self):
+        """
+        Make the Neato run into the closest free-standing object to it,
+        if none are detected by the LiDAR, follow the nearest wall,
+        if there is an object that the Neato will run into, make it turn away,
+        if the Neato runs into something, make it stop moving.
+        """
         # Make sure the timer period is long enough
         if self.last_time + self.timer_period > time.time():
             print("self.timer_period is too long!")
@@ -70,21 +144,30 @@ class FiniteStateController(Node):
             # print("stopping due to bump")
             twist_msg = Twist()
             self.publisher.publish(twist_msg)
+            self.last_error = None
         elif self.laser_mad:
             # print("avoiding collision")
             self.avoid_collision()
+            self.last_error = None
         elif len(self.possible_person) > 0:
             self.person_follow()
+            self.last_error = None
         else:
             print("wall following")
             self.wall_follow()
 
     def forward(self):
+        """
+        Make the Neato drive forward.
+        """
         twist_msg = Twist()
         twist_msg.linear.x = .4
         self.publisher.publish(twist_msg)
 
     def square(self):
+        """
+        Make the Neato drive in a square.
+        """
         elapsed_time = time.time() - self.time_started
         i = self.what_doin % 2
         if elapsed_time >= self.move_time[i]:
@@ -98,7 +181,6 @@ class FiniteStateController(Node):
         Uses stored list of "possible person" points to determine a point to 
         follow, then move towards that point in an arc.
         """
-
         # Sort "possible person" list by distance to get the closest point in the list
         self.possible_person.sort(key = lambda element: element[1])
         theta = self.possible_person[0][0]
@@ -169,13 +251,22 @@ class FiniteStateController(Node):
         # Set last_error
         self.last_error = error
 
+
 def main(args = None):
+    """
+    Run the FiniteStateController Node.
+
+    Args:
+        args: anything that could be passed to a generic
+        Node's initializer.
+    """
     rclpy.init(args=args)      
     node = FiniteStateController()
     rclpy.spin(node)
     rclpy.shutdown()    
 
 
+# Run main() if this file is run.
 if __name__ == '__main__':
     main()
 
