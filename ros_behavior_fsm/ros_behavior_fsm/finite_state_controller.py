@@ -42,14 +42,17 @@ class FiniteStateController(Node):
             self.laser_mad = True
         else:
             self.laser_mad = False
-        print("laser_mad:", self.laser_mad)
+        # print("laser_mad:", self.laser_mad)
 
+        self.possible_person = []
         for i in range(360):
-            if abs(self.laser_eyes[i]-self.laser_eyes[i+1]) > 5:
-                if self.laser_eyes[i] < self.laser_eyes[i+1]:
+            if abs(self.laser_eyes[i]-self.laser_eyes[i+1]) > 5: # and self.laser_eyes[i]<10 and self.laser_eyes[i+1]<10:
+                if self.laser_eyes[i] < self.laser_eyes[i+1] and self.laser_eyes[i]<4:
                     self.possible_person.append((i,self.laser_eyes[i]))
-                else:
+                elif self.laser_eyes[i+1]<4:
                     self.possible_person.append((i+1,self.laser_eyes[i+1]))
+        print(self.possible_person)
+
 
     def avoid_collision(self):
         twist_msg = Twist()
@@ -70,11 +73,11 @@ class FiniteStateController(Node):
         elif self.laser_mad:
             # print("avoiding collision")
             self.avoid_collision()
-        #elif len(self.possible_person) > 0:
-            #self.person_follow
+        elif len(self.possible_person) > 0:
+            self.person_follow()
         else:
-            # self.square()
-            self.wall_follow() # adding this temporarily to test collision avoidance
+            print("wall following")
+            self.wall_follow()
 
     def forward(self):
         twist_msg = Twist()
@@ -89,16 +92,29 @@ class FiniteStateController(Node):
             self.time_started = time.time()
         else:
             self.publisher.publish(self.twist_direction[i])
+    
+    def person_follow(self):
+        """
+        Uses stored list of "possible person" points to determine a point to 
+        follow, then move towards that point in an arc.
+        """
 
-    def person_follow():
+        # Sort "possible person" list by distance to get the closest point in the list
         self.possible_person.sort(key = lambda element: element[1])
-        person_tuple = self.possible_person[0]
-        arc_length = ((.5 *person_tuple[1])/math.tan(person_tuple[0])) * person_tuple[0]
-        time = arc_length/ 0.1
-        angular_speed = (person_tuple[0] * .01745)/.1
+        theta = self.possible_person[0][0]
+        theta_rad = (theta if theta<180 else theta-360) * math.pi / 180
+        distance = self.possible_person[0][1]
+
+        # Use angle and distance to point to calculate ideal angular velocity
+        arc_length = (distance * theta_rad) / math.sin(theta_rad/2)
+        time = arc_length / 0.1
+        angular_vel = theta_rad / time
+        print(self.possible_person[0][0], distance, arc_length, angular_vel)
+
+        # Send a message to cmd_vel using calculated angular velocity
         twist_msg = Twist()
-        twist_msg.linear = .1
-        twist_msg.angular.z = angular_speed
+        twist_msg.linear.x = 0.1
+        twist_msg.angular.z = angular_vel
         self.publisher.publish(twist_msg)
 
     def wall_follow(self):
@@ -127,9 +143,9 @@ class FiniteStateController(Node):
         closeness_index = int(closeness[0] - closeness[1] < 0)
 
         # Find the error from the ideal closeness
-        print(f"closeness = {closeness[closeness_index]}")
+        # print(f"closeness = {closeness[closeness_index]}")
         error = closeness[closeness_index] - self.ideal_closeness
-        print(f"{error = }")
+        # print(f"{error = }")
 
         # Turn based on that error and the previous error
         wall_side_sign = closeness_index * 2 - 1
@@ -141,10 +157,10 @@ class FiniteStateController(Node):
             de_dt = self.timer_period * delta_error
             angular_vel += de_dt * self.de_dt_to_velocity
 
-        print(f"Unclamped angular velocity = {angular_vel}")
+        # print(f"Unclamped angular velocity = {angular_vel}")
         angular_vel = max(angular_vel, -0.5)
         angular_vel = min(angular_vel, 0.5)
-        print(f"Clamped angular velocity = {angular_vel}")
+        # print(f"Clamped angular velocity = {angular_vel}")
         twist_msg = Twist()
         twist_msg.linear.x = 0.15
         twist_msg.angular.z = angular_vel
