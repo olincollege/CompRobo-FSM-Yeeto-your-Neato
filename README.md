@@ -32,6 +32,8 @@ The simulated Neato doing an emergency stop can be seen at the end of the person
 
 We used the Neato's LiDAR to detect if anything is too close to it (the threshold we chose was 0.2 meters). If there is anything too close in the Neato's forward-facing 90° "field of view", it will turn left until it no longer detects the obstacle.
 
+[Video of simulated Neato avoiding collision with wall](https://olincollege-my.sharepoint.com/:v:/g/personal/pwang_olin_edu/IQDofBbstbdsSJZMlvClnOwNAfKvC09fnIUuASjeqLVgT7w?e=dMSqgC&nav=eyJyZWZlcnJhbEluZm8iOnsicmVmZXJyYWxBcHAiOiJTdHJlYW1XZWJBcHAiLCJyZWZlcnJhbFZpZXciOiJTaGFyZURpYWxvZy1MaW5rIiwicmVmZXJyYWxBcHBQbGF0Zm9ybSI6IldlYiIsInJlZmVycmFsTW9kZSI6InZpZXcifX0%3D)
+
 ### Wall Following
 
 Our wall following algorithm runs each frame and is as follows:
