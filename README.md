@@ -52,7 +52,7 @@ $$\mathrm{closeness} = \sum^d \frac{1}{d} $$
 - We scale both the error and its rate of change by constants and add the results together to get the angular velocity.
 - We set the linear velocity to half of the Neato’s linear velocity and clamp the angular velocity to not exceed half of its maximum angular velocity. This way the Neato’s maximum wheel velocity cannot be exceeded.
 
-Result:
+#### Result:
 
 The Neato smoothly moves around the world, moving towards the closest wall that’s in front of it while keeping a safe distance from it. It can move around 90° corners without needing to go into collision avoidance mode. It doesn’t oscillate closer and further from the wall as it would if the rate of change of error didn’t affect angular velocity.
 
@@ -80,7 +80,7 @@ $$ \mathrm{Arc\ length} = \frac{d\theta}{\sin(\frac{\theta}{2})} $$
 - After this arc length is calculated, we can calculate the amount of time the Neato will take to travel along that arc. Using this, we determine an angular velocity to use.
 - During person following, LiDAR collision avoidance is disabled, to allow the Neato to run into the object it’s following; this will trigger the bump sensor causing the Neato to stop.
 
-Result:
+#### Result:
 
 The Neato smoothly drives towards the nearest freestanding object until it hits it and stops. If the object moves before the Neato reaches it, the Neato will continue to follow it as if it was always there. If the object moves far enough away to no longer be the closest freestanding object, the Neato will change its target.
 
