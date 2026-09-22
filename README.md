@@ -2,7 +2,7 @@
 
 #### Pippin Fleet, Austin Woolf, Pepper Wang
 
-In this project, we were tasked to create a finite state machine with various behaviors for our Neato robot, using ROS and Python.
+In this project, we were tasked to create a finite state machine with various behaviors for our Neato robot, using ROS2 and Python.
 
 ## Finite State Machine
 
@@ -71,7 +71,7 @@ Our person following algorithm runs each frame and is as follows:
 - Our goal is to move in a smooth arc to reach the person so the Neato doesn’t waste time turning towards a target that could move.
 - We use the angle and distance to calculate the length of the arc from the Neato to the point using this formula:
 
-$$ \mathrm{Arc\ length} = \frac{d\theta}{\sin(\frac{\theta}{2})} $$
+$$ \mathrm{Arc\ length} = \frac{d \cdot \theta}{\sin(\frac{\theta}{2})} $$
 
 - where d is the distance in meters and is the angle in radians. We convert the angle, which is stored as indices in a list, from degrees to radians.
 
@@ -134,3 +134,13 @@ Steps for running the code for this project:
 - Once the Neato’s bump sensor is triggered it stops forever, there is no way of getting out of “Emergency Stop”.
 - The “Collision Avoidance” algorithm always turns to the left, there is no way for it to turn to the right even if that would make more sense in the context of “Person Following” or “Wall Following”.
 - Once the Neato has found the “person” it will bump into it triggering “Emergency Stop” and ending the program completely.
+
+## Takeaways
+
+Some of the things we learned:
+
+- The basics of ROS2: how to subscribe and publish to the Neato's topics and write architecture around ROS2's interfaces
+- Using our code with both physical Neatos and the Gazebo simulation
+- Effectively collaborating with Git
+- Writing closed loop control algorithms
+- Using the VSCode Live Share extension
