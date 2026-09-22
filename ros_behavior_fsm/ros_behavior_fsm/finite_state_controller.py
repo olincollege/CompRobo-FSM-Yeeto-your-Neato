@@ -1,10 +1,14 @@
+"""
+Contains and runs the FiniteStateController Node.
+"""
+
+import time
+import math
 import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from neato2_interfaces.msg import Bump
-import time
 from sensor_msgs.msg import LaserScan
-import math
 
 class FiniteStateController(Node):
     """
@@ -57,7 +61,8 @@ class FiniteStateController(Node):
     """
     def __init__(self):
         """
-        Initialize all instance attributes.
+        Initialize all instance attributes, start the timer,
+        and initialize the publisher and subscribers.
         """
         self.ideal_closeness = 90
         self.error_to_velocity = 0.02
@@ -68,8 +73,10 @@ class FiniteStateController(Node):
         self.timer_period = .01
         self.timer = self.create_timer(self.timer_period, self.run_loop)
         self.publisher = self.create_publisher(Twist,'cmd_vel', 10)
-        self.sub_bump = self.create_subscription(Bump, "bump", self.process_bump, 10)
-        self.sub_scan = self.create_subscription(LaserScan, "scan", self.process_scan, 10)
+        self.sub_bump = self.create_subscription(
+            Bump, "bump", self.process_bump, 10)
+        self.sub_scan = self.create_subscription(
+            LaserScan, "scan", self.process_scan, 10)
         self.time_started = time.time()
         self.what_doin = 0
         self.move_time = (4, 1.57)
@@ -81,7 +88,7 @@ class FiniteStateController(Node):
         self.laser_mad = False
         self.last_error = None
         self.last_time = time.time()
-    
+
     def process_bump(self, msg):
         """
         Take in the bump sensor data and update e_stop.
@@ -89,7 +96,12 @@ class FiniteStateController(Node):
         Args:
             msg (Bump): The bump sensor data from the Neato.
         """
-        self.e_stop = msg.left_front or msg.left_side or msg.right_front or msg.right_side
+        self.e_stop = (
+            msg.left_front or
+            msg.left_side or
+            msg.right_front or
+            msg.right_side
+        )
         print("e_stop:", self.e_stop)
 
     def process_scan(self, msg):
@@ -100,21 +112,32 @@ class FiniteStateController(Node):
         Args:
             msg (LaserScan): The LiDAR data from the Neato.
         """
+        # Update laser_eyes to match the distance readings from the scan.
         self.laser_eyes = msg.ranges
+
+        # Update laser_mad by checking if there is anything closer than
+        # 0.5 meters in the front quarter of the Neato's LiDAR scan.
         neato_eyes = self.laser_eyes[-45:-1] + self.laser_eyes[0:45]
         if any(distance<0.5 for distance in neato_eyes):
             self.laser_mad = True
         else:
             self.laser_mad = False
-        # print("laser_mad:", self.laser_mad)
+        print("laser_mad:", self.laser_mad)
 
+        # Update possible_person
         self.possible_person = []
+        # Look at each pair of adjacent LiDAR readings:
         for i in range(360):
-            if abs(self.laser_eyes[i]-self.laser_eyes[i+1]) > 1: # and self.laser_eyes[i]<10 and self.laser_eyes[i+1]<10:
-                if self.laser_eyes[i] < self.laser_eyes[i+1] and self.laser_eyes[i]<4:
-                    self.possible_person.append((i,self.laser_eyes[i]))
-                elif self.laser_eyes[i+1]<4:
-                    self.possible_person.append((i+1,self.laser_eyes[i+1]))
+            # If their distance differs by more than a meter they could
+            # be a free-standing object.
+            if abs(self.laser_eyes[i]-self.laser_eyes[i+1]) > 1:
+                # Append the closer of the two distances to
+                # possible_person if it is closer than 4 meters.
+                if(self.laser_eyes[i] < self.laser_eyes[i+1]
+                     and self.laser_eyes[i] < 4):
+                    self.possible_person.append((i, self.laser_eyes[i]))
+                elif self.laser_eyes[i+1] < 4:
+                    self.possible_person.append((i+1, self.laser_eyes[i+1]))
         print(self.possible_person)
 
 
@@ -141,7 +164,7 @@ class FiniteStateController(Node):
 
         # Check for and run the current state
         if self.e_stop:
-            # print("stopping due to bump")
+            print("stopping due to bump")
             twist_msg = Twist()
             self.publisher.publish(twist_msg)
             self.last_error = None
@@ -149,7 +172,7 @@ class FiniteStateController(Node):
             self.person_follow()
             self.last_error = None
         elif self.laser_mad:
-            # print("avoiding collision")
+            print("avoiding collision")
             self.avoid_collision()
             self.last_error = None
         else:
@@ -168,20 +191,24 @@ class FiniteStateController(Node):
         """
         Make the Neato drive in a square.
         """
+        # Calculate the time since the Neato started the current action.
         elapsed_time = time.time() - self.time_started
+
+        # If what_doin is even, drive straight, if it's odd, rotate.
         i = self.what_doin % 2
         if elapsed_time >= self.move_time[i]:
             self.what_doin += 1
             self.time_started = time.time()
         else:
             self.publisher.publish(self.twist_direction[i])
-    
+
     def person_follow(self):
         """
         Uses stored list of "possible person" points to determine a point to 
         follow, then move towards that point in an arc.
         """
-        # Sort "possible person" list by distance to get the closest point in the list
+        # Sort "possible person" list by distance
+        # to get the closest point in the list
         self.possible_person.sort(key = lambda element: element[1])
         theta = self.possible_person[0][0]
         theta_rad = (theta if theta<180 else theta-360) * math.pi / 180
@@ -189,11 +216,11 @@ class FiniteStateController(Node):
 
         # Use angle and distance to point to calculate ideal angular velocity
         arc_length = (distance * theta_rad) / math.sin(theta_rad/2)
-        time = arc_length / 0.1
-        angular_vel = 2 * theta_rad / time
+        drive_time = arc_length / 0.1
+        angular_vel = 2 * theta_rad / drive_time
         angular_vel = max(angular_vel, -1.0)
         angular_vel = min(angular_vel, 1.0)
-        # print(self.possible_person[0][0], distance, arc_length, angular_vel)
+        print(self.possible_person[0][0], distance, arc_length, angular_vel)
 
         # Send a message to cmd_vel using calculated angular velocity
         twist_msg = Twist()
@@ -208,7 +235,7 @@ class FiniteStateController(Node):
         """
         # If no laser scan has been taken, go forward.
         if self.laser_eyes is None:
-            self.forward
+            self.forward()
             return
 
         # Take in the laser range data from the left and right
@@ -227,9 +254,9 @@ class FiniteStateController(Node):
         closeness_index = int(closeness[0] - closeness[1] < 0)
 
         # Find the error from the ideal closeness
-        # print(f"closeness = {closeness[closeness_index]}")
+        print(f"closeness = {closeness[closeness_index]}")
         error = closeness[closeness_index] - self.ideal_closeness
-        # print(f"{error = }")
+        print(f"{error = }")
 
         # Turn based on that error and the previous error
         wall_side_sign = closeness_index * 2 - 1
@@ -241,10 +268,14 @@ class FiniteStateController(Node):
             de_dt = self.timer_period * delta_error
             angular_vel += de_dt * self.de_dt_to_velocity
 
-        # print(f"Unclamped angular velocity = {angular_vel}")
+        # Clamp the angular velocity so it doesn't exceed its maximum.
+        print(f"Unclamped angular velocity = {angular_vel}")
         angular_vel = max(angular_vel, -1.0)
         angular_vel = min(angular_vel, 1.0)
-        # print(f"Clamped angular velocity = {angular_vel}")
+        print(f"Clamped angular velocity = {angular_vel}")
+
+        # Set the Neato's velocity based on the constant
+        # linear velocity and the calculated angular velocity.
         twist_msg = Twist()
         twist_msg.linear.x = 0.15
         twist_msg.angular.z = angular_vel
@@ -262,13 +293,12 @@ def main(args = None):
         args: anything that could be passed to a generic
         Node's initializer.
     """
-    rclpy.init(args=args)      
+    rclpy.init(args=args)
     node = FiniteStateController()
     rclpy.spin(node)
-    rclpy.shutdown()    
+    rclpy.shutdown()
 
 
 # Run main() if this file is run.
 if __name__ == '__main__':
     main()
-
